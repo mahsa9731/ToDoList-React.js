@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Calendar, CheckSquare, Trash2, Edit2, Check, X } from 'lucide-react';
 
 const AVAILABLE_LABELS = [
@@ -11,15 +12,16 @@ const AVAILABLE_LABELS = [
 ];
 
 export default function Card({ card, columnId, onDragStart, onToggleSubtask, onDelete, onEdit }) {
- 
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(card.title);
   const [editDescription, setEditDescription] = useState(card.description || '');
+  const completedSubtasks = card.subtasks?.filter(s => s.completed).length || 0;
+  const totalSubtasks = card.subtasks?.length || 0;
+  const progressPercent = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
 
- 
   const handleLocalDragStart = (e) => {
     if (isEditing) {
-      e.preventDefault(); 
+      e.preventDefault();
       return;
     }
     onDragStart(e, card.id, columnId);
@@ -30,7 +32,6 @@ export default function Card({ card, columnId, onDragStart, onToggleSubtask, onD
     e.currentTarget.style.opacity = '1';
   };
 
- 
   const handleSave = () => {
     if (!editTitle.trim()) return;
     onEdit(columnId, card.id, editTitle, editDescription);
@@ -38,13 +39,19 @@ export default function Card({ card, columnId, onDragStart, onToggleSubtask, onD
   };
 
   return (
-    <div
-      draggable={!isEditing} 
+    <motion.div
+      layout 
+      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.92, transition: { duration: 0.15 } }}
+      whileHover={{ y: -3, transition: { duration: 0.2 } }}
+      transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+      draggable={!isEditing}
       onDragStart={handleLocalDragStart}
       onDragEnd={handleLocalDragEnd}
-      className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] cursor-grab active:cursor-grabbing hover:shadow-[0_10px_30px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-300 group select-none animate-[scaleIn_0.2s_ease-out]"
+      className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.02)] cursor-grab active:cursor-grabbing hover:shadow-[0_10px_30px_rgba(0,0,0,0.06)] transition-shadow duration-300 group select-none relative"
     >
-      
+      {/* Header Info & Action Buttons */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
           <Calendar className="w-3.5 h-3.5 text-slate-400/80" /> {card.date}
@@ -78,14 +85,20 @@ export default function Card({ card, columnId, onDragStart, onToggleSubtask, onD
         </div>
       </div>
 
+      {/* Title & Description or Edit Form */}
       {isEditing ? (
-        <div className="space-y-3 my-2 animate-[slideUp_0.15s_ease-out]">
+        <motion.div 
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-3 my-2"
+        >
           <input
             type="text"
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
             className="w-full px-3 py-1.5 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-bold text-slate-900"
             placeholder="Task title..."
+            autoFocus
           />
           <textarea
             value={editDescription}
@@ -108,10 +121,9 @@ export default function Card({ card, columnId, onDragStart, onToggleSubtask, onD
               <Check className="w-4 h-4" />
             </button>
           </div>
-        </div>
+        </motion.div>
       ) : (
         <>
-         
           <h3 className="font-extrabold text-slate-900 text-sm leading-snug mb-1.5 group-hover:text-indigo-600 transition-colors duration-200">
             {card.title}
           </h3>
@@ -123,31 +135,48 @@ export default function Card({ card, columnId, onDragStart, onToggleSubtask, onD
         </>
       )}
 
+      {/* Subtasks Progress */}
       {card.subtasks && card.subtasks.length > 0 && (
         <div className="bg-slate-50/60 p-3 rounded-xl border border-slate-100 mb-4 space-y-2">
-          <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-            <CheckSquare className="w-3.5 h-3.5" /> Tasks progress
+          <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+            <span className="flex items-center gap-1">
+              <CheckSquare className="w-3.5 h-3.5" /> Tasks progress
+            </span>
+            <span>{completedSubtasks}/{totalSubtasks}</span>
           </div>
-          {card.subtasks.map((sub, sIdx) => (
-            <label
-              key={sIdx}
-              onClick={(e) => e.stopPropagation()} 
-              className="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer select-none group/item"
-            >
-              <input
-                type="checkbox"
-                checked={sub.completed}
-                onChange={() => onToggleSubtask(columnId, card.id, sIdx)}
-                className="w-4 h-4 rounded-md border-slate-300 text-indigo-600 focus:ring-0 cursor-pointer transition-all mt-0.5"
-              />
-              <span className={`transition-all duration-200 ${sub.completed ? 'line-through text-slate-400' : 'text-slate-700 group-hover/item:text-slate-900'}`}>
-                {sub.text}
-              </span>
-            </label>
-          ))}
+
+          <div className="w-full bg-slate-200/80 h-1.5 rounded-full overflow-hidden my-1.5">
+            <motion.div
+              className="bg-indigo-600 h-full rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${progressPercent}%` }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+            />
+          </div>
+
+          <div className="space-y-1.5 pt-1">
+            {card.subtasks.map((sub, sIdx) => (
+              <label
+                key={sIdx}
+                onClick={(e) => e.stopPropagation()} 
+                className="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer select-none group/item"
+              >
+                <input
+                  type="checkbox"
+                  checked={sub.completed}
+                  onChange={() => onToggleSubtask(columnId, card.id, sIdx)}
+                  className="w-4 h-4 rounded-md border-slate-300 text-indigo-600 focus:ring-0 cursor-pointer transition-all mt-0.5"
+                />
+                <span className={`transition-all duration-200 ${sub.completed ? 'line-through text-slate-400' : 'text-slate-700 group-hover/item:text-slate-900'}`}>
+                  {sub.text}
+                </span>
+              </label>
+            ))}
+          </div>
         </div>
       )}
 
+      {/* Labels */}
       {card.labels && card.labels.length > 0 && (
         <div className="flex flex-wrap gap-1.5 pt-2.5 border-t border-slate-100">
           {card.labels.map(lId => {
@@ -165,6 +194,6 @@ export default function Card({ card, columnId, onDragStart, onToggleSubtask, onD
           })}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
